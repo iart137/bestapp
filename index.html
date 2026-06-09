@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Out of Order</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #ddd;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .screen {
+    display: none;
+    width: 100%;
+    max-width: 390px;
+    min-height: 100vh;
+    min-height: 100dvh;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 32px 24px;
+  }
+  .screen.active { display: flex; }
+
+  /* ── PICKER ── */
+  #screen-picker { background: #fafafa; gap: 32px; }
+
+  .mode-buttons { display: flex; gap: 16px; width: 100%; max-width: 280px; }
+
+  .mode-btn {
+    flex: 1;
+    padding: 20px 12px;
+    font-size: 17px;
+    font-weight: 600;
+    font-family: inherit;
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: transform 0.1s, opacity 0.1s;
+  }
+  .mode-btn:active { transform: scale(0.95); opacity: 0.8; }
+  .mode-btn.light { background: #fff7e6; color: #7a5a00; border: 2px solid #e0c060; }
+  .mode-btn.dark  { background: #1a1a1a; color: #e0e0e0; border: 2px solid #444; }
+
+  /* ── LOADER ── */
+  #screen-loader { background: #fafafa; }
+
+  .spinner {
+    width: 44px; height: 44px;
+    border: 4px solid #ddd;
+    border-top-color: #999;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── CARD ── inner HTML owns the full surface */
+  #screen-card { padding: 0; align-items: stretch; }
+
+  /* ── 404 ── */
+  #screen-404 {
+    font-family: 'Times New Roman', Times, serif;
+    text-align: center;
+    gap: 28px;
+  }
+  #screen-404.light-404 { background: #fff; color: #000; }
+  #screen-404.dark-404  { background: #111; color: #eee; }
+
+  .face-404  { font-family: monospace; font-size: 30px; letter-spacing: 3px; }
+  .title-404 { font-size: 20px; line-height: 1.5; max-width: 290px; }
+
+  /* ── shared CTA ── */
+  .cta-btn {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.1s, opacity 0.1s;
+  }
+  .cta-btn:active { transform: scale(0.97); opacity: 0.85; }
+
+
+</style>
+</head>
+<body>
+
+<div id="screen-picker" class="screen active">
+  <div class="mode-buttons">
+    <button class="mode-btn light" onclick="pickMode('light')">light</button>
+    <button class="mode-btn dark"  onclick="pickMode('dark')">dark</button>
+  </div>
+</div>
+
+<div id="screen-loader" class="screen">
+  <div class="spinner"></div>
+</div>
+
+<div id="screen-card" class="screen"></div>
+
+<div id="screen-404" class="screen"></div>
+
+<script>
+  var currentMode = null;
+
+  var LIGHT_404 = [
+    'Page became a butterfly 🦋',
+    'All done. The page is napping.',
+    'Page wandered off. Happy though.'
+  ];
+  var DARK_404 = [
+    'Page not found. A crow took it.',
+    "We're done. The void says hi.",
+    'Gone. Possibly a goat now.'
+  ];
+
+  var LIGHT_CARDS = [
+    // L1 — generic system dialog
+    {
+      id: 'l1',
+      render: function () {
+        return `
+<div style="background:#f4f4f4;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:24px;">
+  <div style="background:#fff;border-radius:14px;box-shadow:0 4px 28px rgba(0,0,0,.15);width:100%;max-width:320px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+    <div style="background:#e6e6e6;padding:10px 14px;display:flex;align-items:center;gap:7px;border-bottom:1px solid #d0d0d0;">
+      <span style="width:12px;height:12px;background:#ff5f57;border-radius:50%;display:inline-block;"></span>
+      <span style="width:12px;height:12px;background:#febc2e;border-radius:50%;display:inline-block;"></span>
+      <span style="width:12px;height:12px;background:#28c840;border-radius:50%;display:inline-block;"></span>
+      <span style="margin-left:auto;font-size:11px;color:#999;">System Dialog</span>
+    </div>
+    <div style="padding:28px 24px 24px;text-align:center;">
+      <div style="font-size:36px;margin-bottom:12px;">⚠️</div>
+      <div style="font-size:17px;font-weight:700;margin-bottom:12px;color:#1a1a1a;">Out of Order</div>
+      <div style="font-size:14px;color:#555;line-height:1.65;margin-bottom:24px;">The app turned into a small pond. Ducks live here now. Shh.</div>
+      <button class="cta-btn" onclick="showCta()" style="background:#1a73e8;color:#fff;font-family:inherit;">hi ducks</button>
+    </div>
+  </div>
+</div>`;
+      }
+    },
+
+    // L2 — handwritten fridge note
+    {
+      id: 'l2',
+      render: function () {
+        return `
+<div style="background:#f5f2e8;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:24px;">
+  <div style="background:#fef9c3;border-radius:3px;box-shadow:2px 5px 18px rgba(0,0,0,.2),0 1px 3px rgba(0,0,0,.1);width:100%;max-width:300px;padding:36px 28px 28px;position:relative;transform:rotate(-1.8deg);">
+    <div style="position:absolute;top:0;left:50%;transform:translateX(-50%) translateY(-8px);width:44px;height:14px;background:rgba(160,120,40,.35);border-radius:3px;"></div>
+    <p style="font-family:Georgia,serif;font-size:17px;line-height:1.9;color:#3b2f00;margin-bottom:28px;">took the app to the seaside. back whenever.<br><br><em>— best app ever</em></p>
+    <button class="cta-btn" onclick="showCta()" style="background:rgba(160,120,40,.2);color:#5a3e00;border:1px solid rgba(160,120,40,.4);font-family:Georgia,serif;">have fun</button>
+  </div>
+</div>`;
+      }
+    },
+
+    // L3 — empty inbox
+    {
+      id: 'l3',
+      render: function () {
+        return `
+<div style="background:#fff;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:40px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;text-align:center;">
+  <div style="font-size:72px;margin-bottom:20px;">📭</div>
+  <div style="font-size:21px;font-weight:700;color:#1a1a1a;margin-bottom:10px;">Inbox Zero</div>
+  <div style="font-size:15px;color:#666;line-height:1.75;margin-bottom:40px;">A goose has your mail. Geese are responsible now. It's fine.</div>
+  <button class="cta-btn" onclick="showCta()" style="background:#0f9d58;color:#fff;font-family:inherit;max-width:260px;">good goose</button>
+</div>`;
+      }
+    },
+
+    // L4 — now playing
+    {
+      id: 'l4',
+      render: function () {
+        return `
+<div style="background:#18182c;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:32px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;text-align:center;">
+  <div style="background:linear-gradient(145deg,#23234a,#16162a);border-radius:20px;width:100%;max-width:320px;padding:32px 24px 28px;box-shadow:0 8px 40px rgba(0,0,0,.6);">
+    <div style="width:100px;height:100px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:16px;margin:0 auto 24px;display:flex;align-items:center;justify-content:center;font-size:44px;">🎵</div>
+    <div style="font-size:10px;letter-spacing:.14em;color:#666;text-transform:uppercase;margin-bottom:6px;">Now Playing</div>
+    <div style="font-size:19px;font-weight:700;color:#fff;margin-bottom:4px;">Legally a Soup</div>
+    <div style="font-size:13px;color:#aaa;margin-bottom:6px;">The App</div>
+    <div style="font-size:12px;color:#555;line-height:1.65;margin-bottom:20px;">This app is legally a soup.<br>Soups can't open. Sorry!</div>
+    <div style="display:flex;justify-content:center;gap:28px;font-size:26px;margin-bottom:18px;">⏮ ⏸ ⏭</div>
+    <div style="background:#2a2a4a;border-radius:4px;height:3px;margin-bottom:28px;"><div style="background:#667eea;height:3px;width:38%;border-radius:4px;"></div></div>
+    <button class="cta-btn" onclick="showCta()" style="background:#667eea;color:#fff;font-family:inherit;">understandable</button>
+  </div>
+</div>`;
+      }
+    },
+
+    // L5 — gentle blue screen
+    {
+      id: 'l5',
+      render: function () {
+        return `
+<div style="background:#0078d4;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:48px 36px;font-family:'Segoe UI',sans-serif;text-align:center;color:#fff;">
+  <div style="font-size:72px;font-weight:100;margin-bottom:24px;">:(</div>
+  <div style="font-size:15px;line-height:1.85;margin-bottom:52px;max-width:290px;">the app floated off as a balloon.<br>wave goodbye.</div>
+  <button class="cta-btn" onclick="showCta()" style="background:rgba(255,255,255,.18);color:#fff;border:2px solid rgba(255,255,255,.55);font-family:inherit;max-width:280px;">bye balloon</button>
+</div>`;
+      }
+    },
+
+    // L6 — out-of-office auto-reply
+    {
+      id: 'l6',
+      render: function () {
+        return `
+<div style="background:#f1f3f4;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 14px rgba(0,0,0,.1);width:100%;max-width:320px;overflow:hidden;">
+    <div style="background:#e8eaed;padding:14px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #ddd;">
+      <div style="font-size:20px;">📬</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:11px;color:#888;">From: Life &lt;life@real.world&gt;</div>
+        <div style="font-size:13px;font-weight:600;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Re: Your Tab</div>
+      </div>
+      <span style="flex-shrink:0;font-size:9px;font-weight:700;letter-spacing:.06em;background:#1e8e3e;color:#fff;padding:3px 7px;border-radius:4px;">AUTOMATIC REPLY</span>
+    </div>
+    <div style="padding:22px 20px;font-size:14px;color:#333;line-height:1.75;">
+      <p>We've evolved past being an app. We're a light breeze now.</p>
+    </div>
+    <div style="padding:0 20px 22px;">
+      <button class="cta-btn" onclick="showCta()" style="background:#1e8e3e;color:#fff;font-family:inherit;">breezy</button>
+    </div>
+  </div>
+</div>`;
+      }
+    }
+  ];
+
+  var DARK_CARDS = [
+    // D1 — black system dialog
+    {
+      id: 'd1',
+      render: function () {
+        return `
+<div style="background:#0a0a0a;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:24px;">
+  <div style="background:#1c1c1c;border:1px solid #333;border-radius:14px;box-shadow:0 4px 40px rgba(0,0,0,.9);width:100%;max-width:320px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+    <div style="background:#252525;padding:10px 14px;display:flex;align-items:center;gap:7px;border-bottom:1px solid #333;">
+      <span style="width:12px;height:12px;background:#3a3a3a;border-radius:50%;display:inline-block;border:1px solid #505050;"></span>
+      <span style="width:12px;height:12px;background:#3a3a3a;border-radius:50%;display:inline-block;border:1px solid #505050;"></span>
+      <span style="width:12px;height:12px;background:#3a3a3a;border-radius:50%;display:inline-block;border:1px solid #505050;"></span>
+    </div>
+    <div style="padding:28px 24px 24px;text-align:center;">
+      <div style="font-size:36px;margin-bottom:12px;">💀</div>
+      <div style="font-size:17px;font-weight:700;margin-bottom:12px;color:#ddd;">Out of Order</div>
+      <div style="font-size:14px;color:#888;line-height:1.65;margin-bottom:24px;">The app was eaten by a larger app. Circle of life. Bye.</div>
+      <button class="cta-btn" onclick="showCta()" style="background:#2e2e2e;color:#ccc;border:1px solid #505050;font-family:inherit;">brutal</button>
+    </div>
+  </div>
+</div>`;
+      }
+    },
+
+    // D2 — museum specimen label
+    {
+      id: 'd2',
+      render: function () {
+        return `
+<div style="background:#111;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:48px 28px;font-family:'Courier New',Courier,monospace;text-align:center;">
+  <div style="position:relative;width:88px;height:112px;margin:0 auto 28px;flex-shrink:0;">
+    <div style="position:absolute;bottom:0;left:10px;right:10px;height:88px;border:2px solid rgba(210,190,140,.3);border-radius:6px 6px 12px 12px;background:rgba(210,190,140,.04);"></div>
+    <div style="position:absolute;top:18px;left:22px;right:22px;height:28px;border:2px solid rgba(210,190,140,.3);border-bottom:none;border-radius:4px 4px 0 0;background:rgba(210,190,140,.04);"></div>
+    <div style="position:absolute;top:12px;left:18px;right:18px;height:9px;background:rgba(210,190,140,.18);border-radius:3px;border:1px solid rgba(210,190,140,.28);"></div>
+  </div>
+  <div style="font-size:14px;color:#888;line-height:1.75;margin-bottom:36px;max-width:250px;">The app is in a jar now.<br>We're not sure who put it there.</div>
+  <button class="cta-btn" onclick="showCta()" style="background:#181810;color:#a09060;border:1px solid rgba(210,190,140,.28);font-family:'Courier New',Courier,monospace;max-width:160px;">fair</button>
+</div>`;
+      }
+    },
+
+    // D3 — nihilist void
+    {
+      id: 'd3',
+      render: function () {
+        return `
+<div style="background:#0e0e0e;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:48px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;text-align:center;">
+  <div style="font-size:52px;color:#2a2a2a;margin-bottom:32px;">∅</div>
+  <div style="font-size:16px;color:#aaa;line-height:2;margin-bottom:52px;">The app is now a single unblinking eye.<br>It sees you. Anyway.</div>
+  <button class="cta-btn" onclick="showCta()" style="background:#1a1a1a;color:#888;border:1px solid #333;font-family:inherit;max-width:180px;">cool</button>
+</div>`;
+      }
+    },
+
+    // D4 — CCTV security feed
+    {
+      id: 'd4',
+      render: function () {
+        return `
+<div style="background:#0a0a0a;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="width:100%;max-width:340px;border:2px solid #1a1a1a;border-radius:4px;overflow:hidden;background:#000;box-shadow:0 0 40px rgba(0,180,0,.06);">
+    <div style="background:#0d0d0d;padding:6px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #111;">
+      <span style="font-size:10px;color:#3a7a3a;letter-spacing:.10em;font-family:'Courier New',monospace;">CAM 03</span>
+      <span style="font-size:10px;color:#bb2222;letter-spacing:.04em;">● REC</span>
+      <span style="font-size:10px;color:#3a7a3a;font-family:'Courier New',monospace;">03:14 AM</span>
+    </div>
+    <div style="position:relative;height:190px;background:#050a05;overflow:hidden;display:flex;align-items:center;justify-content:center;">
+      <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,50,0,.12) 3px,rgba(0,50,0,.12) 4px);pointer-events:none;"></div>
+      <div style="text-align:center;color:rgba(80,200,80,.65);font-family:'Courier New',monospace;font-size:12px;letter-spacing:.05em;position:relative;z-index:1;">
+        <div style="font-size:40px;filter:saturate(0) brightness(0.7) sepia(1) hue-rotate(80deg) saturate(4);">🦝</div>
+      </div>
+    </div>
+    <div style="padding:18px 18px 16px;text-align:center;">
+      <div style="font-size:14px;color:#666;line-height:1.75;margin-bottom:18px;">A raccoon is operating the app. Poorly.<br>It's trying its best.</div>
+      <button class="cta-btn" onclick="showCta()" style="background:#0a150a;color:#4a9a4a;border:1px solid #1c3a1c;font-family:inherit;">respect</button>
+    </div>
+  </div>
+</div>`;
+      }
+    },
+
+    // D5 — do-not-disturb
+    {
+      id: 'd5',
+      render: function () {
+        return `
+<div style="background:#0f0f1a;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:48px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;text-align:center;">
+  <div style="font-size:56px;margin-bottom:28px;">🌙</div>
+  <div style="font-size:15px;color:#b8b8cc;line-height:1.85;margin-bottom:48px;max-width:270px;">404 cows found where the app used to be.<br>We have questions too.</div>
+  <button class="cta-btn" onclick="showCta()" style="background:#1e1e30;color:#b8b8cc;border:1px solid #3a3a52;font-family:inherit;max-width:220px;">moo i guess</button>
+</div>`;
+      }
+    },
+
+    // D6 — weather tile
+    {
+      id: 'd6',
+      render: function () {
+        return `
+<div style="background:#1a1e26;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:40px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="background:#252b38;border-radius:20px;width:100%;max-width:300px;padding:28px 24px 24px;box-shadow:0 4px 28px rgba(0,0,0,.5);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+      <div>
+        <div style="font-size:12px;color:#667;margin-bottom:4px;">Today</div>
+        <div style="font-size:30px;font-weight:300;color:#bbc;">Fog</div>
+      </div>
+      <div style="font-size:54px;opacity:.65;">🌫️</div>
+    </div>
+    <div style="font-size:13px;color:#778;line-height:1.75;margin-bottom:20px;text-align:center;">The app left to go be a fog somewhere.<br>It does this.</div>
+    <button class="cta-btn" onclick="showCta()" style="background:#1e222c;color:#778;border:1px solid #323848;font-family:inherit;">typical</button>
+  </div>
+</div>`;
+      }
+    }
+  ];
+
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('active'); });
+    document.getElementById(id).classList.add('active');
+  }
+
+  function getCard(mode) {
+    return mode === 'light'
+      ? LIGHT_CARDS[Math.floor(Math.random() * LIGHT_CARDS.length)]
+      : DARK_CARDS[Math.floor(Math.random() * DARK_CARDS.length)];
+  }
+
+  function get404Line(mode) {
+    return mode === 'light'
+      ? LIGHT_404[Math.floor(Math.random() * LIGHT_404.length)]
+      : DARK_404[Math.floor(Math.random() * DARK_404.length)];
+  }
+
+  function showCta() {
+    var el = document.getElementById('screen-404');
+    var face = currentMode === 'light' ? '^_^' : 'X_X';
+    var line = get404Line(currentMode);
+    el.className = 'screen ' + (currentMode === 'light' ? 'light-404' : 'dark-404');
+    el.innerHTML = '<div class="face-404">' + face + '</div><div class="title-404">' + line + '</div>';
+    showScreen('screen-404');
+  }
+
+  function pickMode(mode) {
+    currentMode = mode;
+    showScreen('screen-loader');
+    setTimeout(function () {
+      var card = getCard(mode);
+      document.getElementById('screen-card').innerHTML = card.render();
+      showScreen('screen-card');
+    }, 1300);
+  }
+</script>
+</body>
+</html>
