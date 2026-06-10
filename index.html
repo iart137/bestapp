@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="description" content="when you feel like apping">
 <title>best app #one 5 stars</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -32,10 +33,19 @@
   /* ── PICKER ── */
   #screen-picker { background: #fafafa; gap: 32px; }
 
+  .picker-header { display: flex; flex-direction: column; gap: 6px; }
+
   .picker-title {
     font-size: 22px;
     font-weight: 600;
     color: #333;
+    text-align: center;
+  }
+
+  .picker-subtitle {
+    font-size: 14px;
+    font-weight: 400;
+    color: #888;
     text-align: center;
   }
 
@@ -103,7 +113,10 @@
 <body>
 
 <div id="screen-picker" class="screen active">
-  <h1 class="picker-title">best app #one 5 stars</h1>
+  <div class="picker-header">
+    <h1 class="picker-title">best app #one 5 stars</h1>
+    <h2 class="picker-subtitle">when you feel like apping</h2>
+  </div>
   <div class="mode-buttons">
     <button class="mode-btn light" onclick="pickMode('light')">light</button>
     <button class="mode-btn dark"  onclick="pickMode('dark')">dark</button>
